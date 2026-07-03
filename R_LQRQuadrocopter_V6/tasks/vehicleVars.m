@@ -18,22 +18,22 @@ Vehicle.PositionOnEarth.FlatEarthToLLA.xAxis = 0;
 % Airframe
 switch (model)
     case 'Mambo'
-        Vehicle.Airframe.mass = 0.063;
-        Vehicle.Airframe.inertia = diag([0.0000582857 0.0000716914 0.0001]);
+        Vehicle.Airframe.mass = 1.05;
+        Vehicle.Airframe.inertia = diag([0.004347 0.00534681 0.00745809]);
     case 'RollingSpider'
         Vehicle.Airframe.mass = 0.068;
         Vehicle.Airframe.inertia = diag([0.0686e-3 0.092e-3 0.1366e-3]);
 end
-Vehicle.Airframe.d = 0.0624;
+Vehicle.Airframe.d = 0.132;
 Vehicle.Airframe.xy = Vehicle.Airframe.d*sqrt(2)/2; % For diamond rotor set-up
-Vehicle.Airframe.h = -0.015876;
+Vehicle.Airframe.h = 0.015;
 Vehicle.Airframe.Cdx = 0;
 Vehicle.Airframe.Cdy = 0;
 Vehicle.Airframe.diameter = .01; % For drag calculation purposes
 % Rotor
-Vehicle.Rotor.blades = 2;
-Vehicle.Rotor.radius = 0.033;
-Vehicle.Rotor.chord = .008;
+Vehicle.Rotor.blades = 3;
+Vehicle.Rotor.radius = 0.0635;
+Vehicle.Rotor.chord = 0.018;
 Vehicle.Rotor.flappingOffset = 0;
 Vehicle.Rotor.bladeMass = 3.75e-04;
 Vehicle.Rotor.bladeInertia = Vehicle.Rotor.bladeMass*Vehicle.Rotor.radius^2/4;
@@ -43,9 +43,9 @@ Vehicle.Rotor.inertia = Vehicle.Rotor.hubInertia + Vehicle.Rotor.bladeInertia;
 Vehicle.Rotor.Ct = .0107;
 Vehicle.Rotor.Cq = Vehicle.Rotor.Ct*sqrt(Vehicle.Rotor.Ct/2);
 Vehicle.Rotor.solidity = Vehicle.Rotor.chord*Vehicle.Rotor.blades/(pi*Vehicle.Rotor.radius);
-Vehicle.Rotor.theta0 = 14.6*(pi/180);
-Vehicle.Rotor.thetaTip = 6.8*(pi/180);
-Vehicle.Rotor.theta1 = Vehicle.Rotor.thetaTip-Vehicle.Rotor.theta0;
+Vehicle.Rotor.theta0 = 17*(pi/180);
+Vehicle.Rotor.thetaTip = 8*(pi/180);
+Vehicle.Rotor.theta1 = Vehicle.Rotor.thetaTip-Vehicle.Rotor.theta0;open
 Vehicle.Rotor.theta34 = Vehicle.Rotor.theta0+0.75*Vehicle.Rotor.theta1;
 Vehicle.Rotor.a = 5.5; % Lift slope
 Vehicle.Rotor.area = pi*Vehicle.Rotor.radius^2;
