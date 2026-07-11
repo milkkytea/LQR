@@ -147,7 +147,7 @@ block.Dwork(2).Data = 1;
 %%
 function Outputs(block)
 R = block.Dwork(2).Data 
-step = 0.02 * 1/005;
+step = 0.01 * 1/005;
     % --- ДИНАМИЧЕСКИЙ ИМПОРТ КОЭФФИЦИЕНТА G ИЗ ОПТИМИЗАТОРА ---
 % try
 %     G = evalin('base', 'G_opt');
@@ -159,7 +159,7 @@ step = 0.02 * 1/005;
 G = 0.00;
 A = [1, 0.005, 0;...
      0, 1, 0.005;...
-     0, 0, -abs(block.InputPort(1).Data) * 0];
+     0, 0, -abs(block.InputPort(1).Data) * 0.];
      % 0, 0, -G * abs(block.InputPort(1).Data)];
     B = [0;...
          0;...
@@ -169,21 +169,21 @@ A = [1, 0.005, 0;...
          0, 0.0055, 0;...
          0, 0, 0.0028];
 
-           
-        if block.InputPort(2).Data > 0 
-            R = R - step 
-        end 
-
-        if block.InputPort(2).Data < 0 
-            R = R + step 
-        end 
-
-        
+  
+    if block.InputPort(2).Data > 0 
+        R = R - step 
+    else 
+        if  block.InputPort(2).Data < 0
+            R = R + step
+        end
+    end 
     if R < 0.1
-            R = 0.1
+        R = 0.1
     end
-
-
+    if R > 2
+        R = 2
+    end
+    
     [K,S,P] = dlqr(A, B, Q, R);
     block.Dwork(2).Data = R
     for i = 1:3
