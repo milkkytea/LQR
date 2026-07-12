@@ -146,14 +146,14 @@ function Outputs(block)
 
     B = [0;...
          0;...
-         22.9105938506];
+         1.30767676];
 
-    Q = [0.005 * block.InputPort(2).Data * 5080 + 0.005 * 37, 0, 0;...    %[0.005 * (block.InputPort(2).Data) * 5080 + 0.005 * 37, 0, 0;...                         %51
-         0, 1, 0;...
-         0, 0, 1/0.005];
+    Q = [0.001, 0, 0;...    %[0.005 * (block.InputPort(2).Data) * 5080 + 0.005 * 37, 0, 0;...                         %51
+         0, 0.9, 0;...
+         0, 0, 0.001];
 
     
-    R = 353 + block.InputPort(1).Data * 10000 * step - step; %353
+    R = 1 +     abs(block.InputPort(1).Data) * 10; %353
     [K,S,P] = lqr(A, B, Q, R);
 
     for i = 1:3

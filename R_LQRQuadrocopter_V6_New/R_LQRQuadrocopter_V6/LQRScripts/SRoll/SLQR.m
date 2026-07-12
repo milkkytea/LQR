@@ -94,7 +94,7 @@ block.RegBlockMethod('Terminate', @Terminate); % Required
 %%   C MEX counterpart: mdlSetWorkWidths
 %%
 function DoPostPropSetup(block)
-block.NumDworks = 2;
+    block.NumDworks = 4;
   
   block.Dwork(1).Name            = 'x1';
   block.Dwork(1).Dimensions      = 1;
@@ -108,7 +108,18 @@ block.NumDworks = 2;
   block.Dwork(2).DatatypeID      = 0;      % double
   block.Dwork(2).Complexity      = 'Real'; % real
   block.Dwork(2).UsedAsDiscState = true;
+  
+  block.Dwork(3).Name            = 'state_1';
+  block.Dwork(3).Dimensions      = 1;
+  block.Dwork(3).DatatypeID      = 0;      % double
+  block.Dwork(3).Complexity      = 'Real'; % real
+  block.Dwork(3).UsedAsDiscState = true;
 
+  block.Dwork(4).Name            = 'state_2';
+  block.Dwork(4).Dimensions      = 3;
+  block.Dwork(4).DatatypeID      = 0;      % double
+  block.Dwork(4).Complexity      = 'Real'; % real
+  block.Dwork(4).UsedAsDiscState = true;
 
 %%
 %% InitializeConditions:
@@ -135,8 +146,10 @@ function InitializeConditions(block)
 function Start(block)
 
 block.Dwork(1).Data = 0;
-block.Dwork(2).Data = 1;
-%end Start
+
+block.Dwork(2).Data = 1.0;
+block.Dwork(3).Data = 0.0;
+block.Dwork(4).Data = zeros(3,1);
 
 %%
 %% Outputs:
@@ -145,58 +158,98 @@ block.Dwork(2).Data = 1;
 %%   Required         : Yes
 %%   C MEX counterpart: mdlOutputs
 %%
-function Outputs(block)
-R = block.Dwork(2).Data 
-step = 0.02 * 1/005;
-    % --- ДИНАМИЧЕСКИЙ ИМПОРТ КОЭФФИЦИЕНТА G ИЗ ОПТИМИЗАТОРА ---
-% try
-%     G = evalin('base', 'G_opt');
-% catch
-%     G = 4.8; % Значение по умолчанию, если модель запускается вручную без скрипта
-% end
+    function Outputs(block)
 
-% --- ОБНОВЛЕННАЯ МАТРИЦА А ---
-G = 0.00;
-A = [1, 0.005, 0;...
-     0, 1, 0.005;...
-     0, 0, -abs(block.InputPort(1).Data) * 0];
-     % 0, 0, -G * abs(block.InputPort(1).Data)];
-    B = [0;...
-         0;...
+    Ts = 0.005;
+
+    e     = double(block.InputPort(1).Data);
+    e_dot = double(block.InputPort(2).Data);
+
+    A = [1, Ts, 0;
+         0, 1,  Ts;
+         0, 0,  0];
+
+    B = [0;
+         0;
          1.30767676];
 
-    Q = [0.1792, 0, 0;...    %[0.005 * (block.InputPort(2).Data) * 5080 + 0.005 * 37, 0, 0;...                         %51
-         0, 0.0055, 0;...
-         0, 0, 0.0028];
+    Q = diag([0.1792, 0.0055, 0.0028]);
 
-           
-        if block.InputPort(2).Data > 0 
-            R = R - step 
-        end 
+    %% Параметры адаптации R
+    R0    = 2;
+    Rspan = 1.9;
 
-        if block.InputPort(2).Data < 0 
-            R = R + step 
-        end 
+    Rmin = R0 - Rspan;
+    Rmax = R0 + Rspan;
 
-        
-    if R < 0.1
-            R = 0.1
+    e_on  = 0.000010;
+    e_off = 0.000004;
+
+    progress_deadband = 0.0002;
+    progress_scale    = 0.001;
+
+    beta_active = 0.5;
+    beta_return = 0.001;
+
+    R_prev = double(block.Dwork(2).Data);
+
+    if ~isfinite(R_prev) || R_prev < Rmin || R_prev > Rmax
+        R_prev = R0;
     end
 
+    adaptation_active = logical(block.Dwork(3).Data);
 
-    [K,S,P] = dlqr(A, B, Q, R);
-    block.Dwork(2).Data = R
-    for i = 1:3
-        block.OutputPort(i).Data = cast(K(1, i), 'single');
+    %% Гистерезис
+    if ~adaptation_active && abs(e) > e_on
+        adaptation_active = true;
+    elseif adaptation_active && abs(e) < e_off
+        adaptation_active = false;
+    end
+
+    %% Расчёт R
+    if adaptation_active
+
+        progress = -e * e_dot;
+
+        if abs(progress) < progress_deadband
+            progress = 0;
+        end
+
+        R_target = R0 + ...
+            Rspan * tanh(progress / progress_scale);
+
+        R_target = min(max(R_target, Rmin), Rmax);
+
+        R = R_prev + beta_active * (R_target - R_prev);
+
+    else
+
+        R = R_prev + beta_return * (R0 - R_prev);
+
+    end
+    %% DLQR
+    [K, ~, ~] = dlqr(A, B, Q, R);
+    
+    %% Сглаживание коэффициентов
+    K_prev = double(block.Dwork(4).Data(:)).';
+    
+    if any(~isfinite(K_prev)) || all(K_prev == 0)
+        K_prev = K;
     end
     
-    %B(3, 1) = 18.6266058501;
-    %[K,S,P] = lqr(A, B, Q, R);
-    %R = 353 + block.InputPort(2).Data * 10000 * step - step;
+    beta_K = 1;
+    K_out = K_prev + beta_K * (K - K_prev);
+    
+    %% Сохранение состояний
+    block.Dwork(2).Data = R;
+    block.Dwork(3).Data = double(adaptation_active);
+    block.Dwork(4).Data = K_out(:);  % теперь Dwork имеет ширину 3
+    
+    %% Выходы
+    for i = 1:3
+        block.OutputPort(i).Data = cast(K_out(i), 'single');
+    end
 
-    %for i = 4:6
-    %    block.OutputPort(i).Data = cast(K(1, i - 3), 'single');
-   % end
 
 %end Outputs
 
