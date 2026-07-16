@@ -177,7 +177,7 @@ block.Dwork(4).Data = zeros(3,1);
 
     %% Параметры адаптации R
     R0    = 2;
-    Rspan = 1.9;
+    Rspan = 1.7;
 
     Rmin = R0 - Rspan;
     Rmax = R0 + Rspan;
@@ -186,16 +186,17 @@ block.Dwork(4).Data = zeros(3,1);
     e_off = 0.000004;
 
     progress_deadband = 0.0002;
-    progress_scale    = 0.001;
+    progress_scale    = 0.0001;
 
-    beta_active = 0.5;
-    beta_return = 0.001;
+    beta_active = 0.6;
+    beta_return = 0.0015;
 
     R_prev = double(block.Dwork(2).Data);
 
     if ~isfinite(R_prev) || R_prev < Rmin || R_prev > Rmax
         R_prev = R0;
     end
+
 
     adaptation_active = logical(block.Dwork(3).Data);
 
@@ -217,7 +218,14 @@ block.Dwork(4).Data = zeros(3,1);
 
         R_target = R0 + ...
             Rspan * tanh(progress / progress_scale);
-
+if abs(e_dot) > 0.05 
+    R_target = R_target + 0.5; 
+end
+    if e_dot < 0
+        R_target = R_target + 0.004; 
+    else
+        R_target = R_target - 0.004; 
+    end
         R_target = min(max(R_target, Rmin), Rmax);
 
         R = R_prev + beta_active * (R_target - R_prev);
@@ -227,7 +235,7 @@ block.Dwork(4).Data = zeros(3,1);
         R = R_prev + beta_return * (R0 - R_prev);
 
     end
-    %% DLQR
+   
     [K, ~, ~] = dlqr(A, B, Q, R);
     
     %% Сглаживание коэффициентов
@@ -290,4 +298,3 @@ function SetPorts(block, idx, fd)
 function Terminate(block)
 
 %end Terminate
-
